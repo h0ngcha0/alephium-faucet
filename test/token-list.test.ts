@@ -8,7 +8,7 @@ const sampleTokens = [
   {
     id: "token-abc-123",
     name: "Test USDT",
-    symbol: "USDT",
+    symbol: "USDTeth",
     decimals: 6,
     description: "Test USDT token",
     logoURI: "https://example.com/usdt.png",
@@ -23,6 +23,15 @@ const sampleTokens = [
   },
 ];
 
+function mockFetch(data: unknown) {
+  const original = globalThis.fetch;
+  globalThis.fetch = (async () =>
+    new Response(JSON.stringify(data), { status: 200 })) as typeof fetch;
+  return () => {
+    globalThis.fetch = original;
+  };
+}
+
 describe("TokenListService", () => {
   let service: TokenListService;
 
@@ -35,16 +44,11 @@ describe("TokenListService", () => {
     service = new TokenListService("", 60_000, log);
     await service.initialize();
     expect(service.getAllTokens()).toEqual([]);
-    expect(service.getToken("any-id")).toBeUndefined();
+    expect(service.getTokenBySymbol("USDT")).toBeUndefined();
   });
 
-  test("fetches and stores tokens from URL", async () => {
-    const originalFetch = globalThis.fetch;
-    globalThis.fetch = (async () =>
-      new Response(JSON.stringify(sampleTokens), {
-        status: 200,
-      })) as typeof fetch;
-
+  test("fetches and stores tokens, lookup by symbol", async () => {
+    const restore = mockFetch(sampleTokens);
     try {
       service = new TokenListService(
         "https://example.com/tokens.json",
@@ -54,21 +58,35 @@ describe("TokenListService", () => {
       await service.initialize();
 
       expect(service.getAllTokens()).toHaveLength(2);
-      expect(service.getToken("token-abc-123")).toEqual(sampleTokens[0]);
-      expect(service.getToken("token-def-456")).toEqual(sampleTokens[1]);
-      expect(service.getToken("nonexistent")).toBeUndefined();
+      expect(service.getTokenBySymbol("USDTeth")).toEqual(sampleTokens[0]);
+      expect(service.getTokenBySymbol("WBTC")).toEqual(sampleTokens[1]);
+      expect(service.getTokenBySymbol("nonexistent")).toBeUndefined();
     } finally {
-      globalThis.fetch = originalFetch;
+      restore();
+    }
+  });
+
+  test("symbol lookup is case insensitive", async () => {
+    const restore = mockFetch(sampleTokens);
+    try {
+      service = new TokenListService(
+        "https://example.com/tokens.json",
+        600_000,
+        log
+      );
+      await service.initialize();
+
+      expect(service.getTokenBySymbol("usdteth")).toEqual(sampleTokens[0]);
+      expect(service.getTokenBySymbol("USDTETH")).toEqual(sampleTokens[0]);
+      expect(service.getTokenBySymbol("wbtc")).toEqual(sampleTokens[1]);
+      expect(service.getTokenBySymbol("Wbtc")).toEqual(sampleTokens[1]);
+    } finally {
+      restore();
     }
   });
 
   test("getAllTokens returns all loaded tokens", async () => {
-    const originalFetch = globalThis.fetch;
-    globalThis.fetch = (async () =>
-      new Response(JSON.stringify(sampleTokens), {
-        status: 200,
-      })) as typeof fetch;
-
+    const restore = mockFetch(sampleTokens);
     try {
       service = new TokenListService(
         "https://example.com/tokens.json",
@@ -80,10 +98,10 @@ describe("TokenListService", () => {
       const all = service.getAllTokens();
       expect(all).toHaveLength(2);
       const symbols = all.map((t) => t.symbol);
-      expect(symbols).toContain("USDT");
+      expect(symbols).toContain("USDTeth");
       expect(symbols).toContain("WBTC");
     } finally {
-      globalThis.fetch = originalFetch;
+      restore();
     }
   });
 
@@ -107,12 +125,7 @@ describe("TokenListService", () => {
   });
 
   test("stop clears the refresh timer", async () => {
-    const originalFetch = globalThis.fetch;
-    globalThis.fetch = (async () =>
-      new Response(JSON.stringify(sampleTokens), {
-        status: 200,
-      })) as typeof fetch;
-
+    const restore = mockFetch(sampleTokens);
     try {
       service = new TokenListService(
         "https://example.com/tokens.json",
@@ -121,9 +134,8 @@ describe("TokenListService", () => {
       );
       await service.initialize();
       service.stop();
-      // No error means timer was cleared successfully
     } finally {
-      globalThis.fetch = originalFetch;
+      restore();
     }
   });
 });

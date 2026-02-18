@@ -10,7 +10,7 @@ export interface TokenInfo {
 }
 
 export class TokenListService {
-  private tokens: Map<string, TokenInfo> = new Map();
+  private tokensBySymbol: Map<string, TokenInfo> = new Map();
   private url: string;
   private refreshInterval: number;
   private timer: ReturnType<typeof setInterval> | null = null;
@@ -47,18 +47,18 @@ export class TokenListService {
     const data = (await response.json()) as TokenInfo[];
     const newTokens = new Map<string, TokenInfo>();
     for (const token of data) {
-      newTokens.set(token.id, token);
+      newTokens.set(token.symbol.toLowerCase(), token);
     }
-    this.tokens = newTokens;
+    this.tokensBySymbol = newTokens;
     this.log.info(`Loaded ${newTokens.size} tokens from token list`);
   }
 
-  getToken(id: string): TokenInfo | undefined {
-    return this.tokens.get(id);
+  getTokenBySymbol(symbol: string): TokenInfo | undefined {
+    return this.tokensBySymbol.get(symbol.toLowerCase());
   }
 
   getAllTokens(): TokenInfo[] {
-    return Array.from(this.tokens.values());
+    return Array.from(this.tokensBySymbol.values());
   }
 
   stop(): void {

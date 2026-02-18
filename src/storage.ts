@@ -47,17 +47,19 @@ export class FaucetStorage {
     return row ? row.timestamp : 0;
   }
 
-  isRequestAllowed(ip: string, address: string): boolean {
+  isRequestAllowed(ip: string, address: string, token: string = "ALPH"): boolean {
     const nowSec = Math.floor(Date.now() / 1000);
 
     if (ip) {
-      const ts = this.getTimestamp(ip, SUFFIX_IPS);
+      const ipKey = `${ip}:${token}`;
+      const ts = this.getTimestamp(ipKey, SUFFIX_IPS);
       if (ts > 0 && nowSec - ts < this.ipThrottling / 1000) {
         return false;
       }
     }
 
-    const ts = this.getTimestamp(address, SUFFIX_ADDRESSES);
+    const addrKey = `${address}:${token}`;
+    const ts = this.getTimestamp(addrKey, SUFFIX_ADDRESSES);
     if (ts > 0 && nowSec - ts < this.addressThrottling / 1000) {
       return false;
     }
@@ -65,14 +67,14 @@ export class FaucetStorage {
     return true;
   }
 
-  addNewRequest(ip: string, address: string): void {
+  addNewRequest(ip: string, address: string, token: string = "ALPH"): void {
     const nowSec = Math.floor(Date.now() / 1000);
 
     if (ip) {
-      this.upsert(SUFFIX_IPS, ip, nowSec);
+      this.upsert(SUFFIX_IPS, `${ip}:${token}`, nowSec);
     }
 
-    this.upsert(SUFFIX_ADDRESSES, address, nowSec);
+    this.upsert(SUFFIX_ADDRESSES, `${address}:${token}`, nowSec);
   }
 
   private upsert(suffix: string, key: string, timestamp: number): void {

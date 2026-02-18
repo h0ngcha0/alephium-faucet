@@ -83,14 +83,14 @@ async function handleSend(
   const body = await req.text();
 
   let addressStr: string;
-  let tokenId: string | undefined;
+  let token: string | undefined;
 
   const trimmed = body.trim();
   if (trimmed.startsWith("{")) {
     try {
       const parsed = JSON.parse(trimmed);
       addressStr = parsed.address ?? "";
-      tokenId = parsed.tokenId;
+      token = parsed.token;
     } catch {
       return textResponse("Invalid JSON in request body.\n", 400);
     }
@@ -106,11 +106,11 @@ async function handleSend(
     );
   }
 
-  if (tokenId !== undefined) {
-    const tokenInfo = tokenListService.getToken(tokenId);
+  if (token !== undefined) {
+    const tokenInfo = tokenListService.getTokenBySymbol(token);
     if (!tokenInfo) {
       return textResponse(
-        `Unknown token ID: ${tokenId}\n`,
+        `Unknown token: ${token}\n`,
         400
       );
     }
@@ -119,11 +119,11 @@ async function handleSend(
   const ip = req.headers.get("X-Forwarded-For") ?? "";
 
   log.info(
-    `Got a faucet request for ${address}${tokenId ? ` (token: ${tokenId})` : ""} from ${ip || "unknown"}`
+    `Got a faucet request for ${address}${token ? ` (token: ${token})` : ""} from ${ip || "unknown"}`
   );
 
   const resultPromise = new Promise<FaucetResult>((resolve) => {
-    wallet.handleRequest({ address, ip, tokenId, resolve });
+    wallet.handleRequest({ address, ip, token, resolve });
   });
 
   const timeoutPromise = new Promise<FaucetResult>((resolve) => {

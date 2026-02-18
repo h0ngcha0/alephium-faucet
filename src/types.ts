@@ -25,7 +25,7 @@ export interface AppConfig {
 export interface FaucetRequest {
   address: string;
   ip: string;
-  tokenId?: string;
+  token?: string;
   resolve: (result: FaucetResult) => void;
 }
 

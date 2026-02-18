@@ -84,21 +84,22 @@ export class WalletService {
   }
 
   private async processRequest(request: FaucetRequest): Promise<void> {
-    const { address, ip, tokenId, resolve } = request;
-    const description = tokenId
-      ? `token ${tokenId}`
+    const { address, ip, token, resolve } = request;
+    const description = token
+      ? `token ${token}`
       : `${this.txAmount} ALPH`;
     this.log.info(`Got a new request to send ${description} to ${address}`);
 
     try {
-      const allowed = this.storage.isRequestAllowed(ip, address);
+      const throttleKey = token?.toLowerCase() ?? "ALPH";
+      const allowed = this.storage.isRequestAllowed(ip, address, throttleKey);
       if (!allowed) {
         this.log.debug("Request is not allowed (throttled)");
         resolve({ error: new ThrottleError("request throttled") });
         return;
       }
 
-      this.storage.addNewRequest(ip, address);
+      this.storage.addNewRequest(ip, address, throttleKey);
 
       const wallet = await this.nodeProvider.wallets.getWalletsWalletName(
         this.walletName
@@ -119,10 +120,10 @@ export class WalletService {
         tokens?: { id: string; amount: string }[];
       };
 
-      if (tokenId) {
-        const tokenInfo = this.tokenListService.getToken(tokenId);
+      if (token) {
+        const tokenInfo = this.tokenListService.getTokenBySymbol(token);
         if (!tokenInfo) {
-          resolve({ error: new Error(`Unknown token ID: ${tokenId}`) });
+          resolve({ error: new Error(`Unknown token: ${token}`) });
           return;
         }
         const tokenAmount = (
@@ -132,10 +133,10 @@ export class WalletService {
         destination = {
           address,
           attoAlphAmount: this.alphAmountForTokenTransfer,
-          tokens: [{ id: tokenId, amount: tokenAmount }],
+          tokens: [{ id: tokenInfo.id, amount: tokenAmount }],
         };
         this.log.info(
-          `Sending ${tokenAmount} of ${tokenInfo.symbol} (${tokenId}) to ${address}`
+          `Sending ${tokenAmount} of ${tokenInfo.symbol} (${tokenInfo.id}) to ${address}`
         );
       } else {
         destination = {

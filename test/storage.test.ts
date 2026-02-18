@@ -51,7 +51,27 @@ describe("FaucetStorage", () => {
     storage.addNewRequest("1.2.3.4", "addr1");
     storage.addNewRequest("5.6.7.8", "addr2");
     const addrs = storage.listAddresses();
-    expect(addrs).toContain("addr1");
-    expect(addrs).toContain("addr2");
+    expect(addrs).toContain("addr1:ALPH");
+    expect(addrs).toContain("addr2:ALPH");
+  });
+
+  test("allows same address to request different tokens", () => {
+    storage.addNewRequest("1.2.3.4", "addr1", "ALPH");
+    expect(storage.isRequestAllowed("1.2.3.4", "addr1", "usdt")).toBe(true);
+  });
+
+  test("throttles same address requesting same token", () => {
+    storage.addNewRequest("1.2.3.4", "addr1", "usdt");
+    expect(storage.isRequestAllowed("1.2.3.4", "addr1", "usdt")).toBe(false);
+  });
+
+  test("allows same IP to request different tokens", () => {
+    storage.addNewRequest("1.2.3.4", "addr1", "ALPH");
+    expect(storage.isRequestAllowed("1.2.3.4", "addr2", "wbtc")).toBe(true);
+  });
+
+  test("throttles same IP requesting same token to different address", () => {
+    storage.addNewRequest("1.2.3.4", "addr1", "usdt");
+    expect(storage.isRequestAllowed("1.2.3.4", "addr2", "usdt")).toBe(false);
   });
 });
