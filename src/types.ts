@@ -16,11 +16,16 @@ export interface AppConfig {
   metricsNamespace: string;
   metricsSubsystem: string;
   metricsPath: string;
+  tokenListUrl: string;
+  tokenListRefreshInterval: number; // milliseconds
+  alphAmountForTokenTransfer: string;
+  faucetTokenMultiplier: number;
 }
 
 export interface FaucetRequest {
   address: string;
   ip: string;
+  tokenId?: string;
   resolve: (result: FaucetResult) => void;
 }
 

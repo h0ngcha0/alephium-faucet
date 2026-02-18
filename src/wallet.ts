@@ -2,6 +2,7 @@ import { NodeProvider } from "@alephium/web3";
 import type pino from "pino";
 import type { FaucetStorage } from "./storage";
 import type { FaucetMetrics } from "./metrics";
+import type { TokenListService } from "./token-list";
 import { ThrottleError, type FaucetRequest, type FaucetResult } from "./types";
 
 export class WalletService {
@@ -14,6 +15,9 @@ export class WalletService {
   private metrics: FaucetMetrics;
   private log: pino.Logger;
   private queue: Promise<void> = Promise.resolve();
+  private tokenListService: TokenListService;
+  private alphAmountForTokenTransfer: string;
+  private faucetTokenMultiplier: number;
 
   constructor(
     nodeProvider: NodeProvider,
@@ -23,7 +27,10 @@ export class WalletService {
     txAmount: string,
     storage: FaucetStorage,
     metrics: FaucetMetrics,
-    log: pino.Logger
+    log: pino.Logger,
+    tokenListService: TokenListService,
+    alphAmountForTokenTransfer: string,
+    faucetTokenMultiplier: number
   ) {
     this.nodeProvider = nodeProvider;
     this.walletName = walletName;
@@ -33,6 +40,9 @@ export class WalletService {
     this.storage = storage;
     this.metrics = metrics;
     this.log = log;
+    this.tokenListService = tokenListService;
+    this.alphAmountForTokenTransfer = alphAmountForTokenTransfer;
+    this.faucetTokenMultiplier = faucetTokenMultiplier;
   }
 
   async initialize(walletMnemonic: string): Promise<void> {
@@ -74,10 +84,11 @@ export class WalletService {
   }
 
   private async processRequest(request: FaucetRequest): Promise<void> {
-    const { address, ip, resolve } = request;
-    this.log.info(
-      `Got a new request to send ${this.txAmount} to ${address}`
-    );
+    const { address, ip, tokenId, resolve } = request;
+    const description = tokenId
+      ? `token ${tokenId}`
+      : `${this.txAmount} ALPH`;
+    this.log.info(`Got a new request to send ${description} to ${address}`);
 
     try {
       const allowed = this.storage.isRequestAllowed(ip, address);
@@ -102,16 +113,40 @@ export class WalletService {
         );
       }
 
+      let destination: {
+        address: string;
+        attoAlphAmount: string;
+        tokens?: { id: string; amount: string }[];
+      };
+
+      if (tokenId) {
+        const tokenInfo = this.tokenListService.getToken(tokenId);
+        if (!tokenInfo) {
+          resolve({ error: new Error(`Unknown token ID: ${tokenId}`) });
+          return;
+        }
+        const tokenAmount = (
+          BigInt(this.faucetTokenMultiplier) *
+          10n ** BigInt(tokenInfo.decimals)
+        ).toString();
+        destination = {
+          address,
+          attoAlphAmount: this.alphAmountForTokenTransfer,
+          tokens: [{ id: tokenId, amount: tokenAmount }],
+        };
+        this.log.info(
+          `Sending ${tokenAmount} of ${tokenInfo.symbol} (${tokenId}) to ${address}`
+        );
+      } else {
+        destination = {
+          address,
+          attoAlphAmount: this.txAmount,
+        };
+      }
+
       const tx = await this.nodeProvider.wallets.postWalletsWalletNameTransfer(
         this.walletName,
-        {
-          destinations: [
-            {
-              address,
-              attoAlphAmount: this.txAmount,
-            },
-          ],
-        }
+        { destinations: [destination] }
       );
 
       this.metrics.successfulTx.inc();
@@ -123,7 +158,7 @@ export class WalletService {
       this.metrics.failedTx.inc();
       const error = err instanceof Error ? err : new Error(String(err));
       this.log.warn(
-        `Got an error while transferring ${this.txAmount} from ${this.walletName} to ${address}: ${error.message}`
+        `Got an error while transferring ${description} from ${this.walletName} to ${address}: ${error.message}`
       );
       resolve({ error });
     }

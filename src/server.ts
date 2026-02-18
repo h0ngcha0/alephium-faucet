@@ -5,6 +5,7 @@ import type { AppConfig, FaucetResult } from "./types";
 import type { FaucetStorage } from "./storage";
 import type { FaucetMetrics } from "./metrics";
 import type { WalletService } from "./wallet";
+import type { TokenListService } from "./token-list";
 import { extractAddress } from "./address";
 
 export function startServer(
@@ -12,6 +13,7 @@ export function startServer(
   storage: FaucetStorage,
   metrics: FaucetMetrics,
   wallet: WalletService,
+  tokenListService: TokenListService,
   log: pino.Logger
 ): BunServer {
   return Bun.serve({
@@ -21,7 +23,7 @@ export function startServer(
       const path = url.pathname;
 
       if (path === "/send" && req.method === "POST") {
-        return handleSend(req, config, storage, wallet, log);
+        return handleSend(req, config, storage, wallet, tokenListService, log);
       }
 
       if (path === "/send" && req.method !== "POST") {
@@ -29,6 +31,10 @@ export function startServer(
           `Method ${req.method} not allowed, expecting POST\n`,
           405
         );
+      }
+
+      if (path === "/tokens" && req.method === "GET") {
+        return Response.json(tokenListService.getAllTokens());
       }
 
       if (path === "/health") {
@@ -71,23 +77,53 @@ async function handleSend(
   config: AppConfig,
   storage: FaucetStorage,
   wallet: WalletService,
+  tokenListService: TokenListService,
   log: pino.Logger
 ): Promise<Response> {
   const body = await req.text();
-  const address = extractAddress(body);
+
+  let addressStr: string;
+  let tokenId: string | undefined;
+
+  const trimmed = body.trim();
+  if (trimmed.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      addressStr = parsed.address ?? "";
+      tokenId = parsed.tokenId;
+    } catch {
+      return textResponse("Invalid JSON in request body.\n", 400);
+    }
+  } else {
+    addressStr = trimmed;
+  }
+
+  const address = extractAddress(addressStr);
   if (!address) {
     return textResponse(
-      `Address ${body} is not a valid Alephium address.\n`,
+      `Address ${addressStr} is not a valid Alephium address.\n`,
       400
     );
   }
 
+  if (tokenId !== undefined) {
+    const tokenInfo = tokenListService.getToken(tokenId);
+    if (!tokenInfo) {
+      return textResponse(
+        `Unknown token ID: ${tokenId}\n`,
+        400
+      );
+    }
+  }
+
   const ip = req.headers.get("X-Forwarded-For") ?? "";
 
-  log.info(`Got a faucet request for ${address} from ${ip || "unknown"}`);
+  log.info(
+    `Got a faucet request for ${address}${tokenId ? ` (token: ${tokenId})` : ""} from ${ip || "unknown"}`
+  );
 
   const resultPromise = new Promise<FaucetResult>((resolve) => {
-    wallet.handleRequest({ address, ip, resolve });
+    wallet.handleRequest({ address, ip, tokenId, resolve });
   });
 
   const timeoutPromise = new Promise<FaucetResult>((resolve) => {

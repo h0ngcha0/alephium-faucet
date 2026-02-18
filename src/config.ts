@@ -48,6 +48,10 @@ export function loadConfig(): AppConfig {
     metricsNamespace: env("METRICS_NAMESPACE", "alephium"),
     metricsSubsystem: env("METRICS_SUBSYSTEM", "faucet"),
     metricsPath: env("METRICS_PATH", "/metrics"),
+    tokenListUrl: env("TOKEN_LIST_URL", ""),
+    tokenListRefreshInterval: envDuration("TOKEN_LIST_REFRESH_INTERVAL", "30m"),
+    alphAmountForTokenTransfer: env("ALPH_AMOUNT_FOR_TOKEN_TRANSFER", "1000000000000000"),
+    faucetTokenMultiplier: parseInt(env("FAUCET_TOKEN_MULTIPLIER", "30"), 10),
   };
 
   if (!config.walletName || !config.walletPassword) {

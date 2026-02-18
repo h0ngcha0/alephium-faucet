@@ -6,6 +6,7 @@ import { createLogger } from "./logger";
 import { FaucetStorage } from "./storage";
 import { FaucetMetrics } from "./metrics";
 import { WalletService } from "./wallet";
+import { TokenListService } from "./token-list";
 import { startServer } from "./server";
 
 const config = loadConfig();
@@ -31,6 +32,13 @@ const metrics = new FaucetMetrics(
 
 const nodeProvider = new NodeProvider(config.alephiumEndpoint);
 
+const tokenListService = new TokenListService(
+  config.tokenListUrl,
+  config.tokenListRefreshInterval,
+  log
+);
+await tokenListService.initialize();
+
 const walletService = new WalletService(
   nodeProvider,
   config.walletName,
@@ -39,17 +47,21 @@ const walletService = new WalletService(
   config.txAmount,
   storage,
   metrics,
-  log
+  log,
+  tokenListService,
+  config.alphAmountForTokenTransfer,
+  config.faucetTokenMultiplier
 );
 
 await walletService.initialize(config.walletMnemonic);
 
-const server = startServer(config, storage, metrics, walletService, log);
+const server = startServer(config, storage, metrics, walletService, tokenListService, log);
 log.info(`Server listening on port ${config.port}`);
 
 function shutdown() {
   log.info("Shutdown signal received, exiting...");
   server.stop();
+  tokenListService.stop();
   storage.close();
   process.exit(0);
 }
