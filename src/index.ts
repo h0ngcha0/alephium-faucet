@@ -19,7 +19,7 @@ mkdirSync(dirname(config.dbPath), { recursive: true });
 const storage = new FaucetStorage(
   config.dbPath,
   config.dbName,
-  config.userThrottling,
+  config.ipThrottling,
   config.addressThrottling,
   log
 );

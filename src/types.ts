@@ -10,7 +10,7 @@ export interface AppConfig {
   explorerTxUri: string;
   dbPath: string;
   dbName: string;
-  userThrottling: number; // milliseconds
+  ipThrottling: number; // milliseconds
   addressThrottling: number; // milliseconds
   txWaitTime: number; // milliseconds
   metricsNamespace: string;
@@ -20,7 +20,7 @@ export interface AppConfig {
 
 export interface FaucetRequest {
   address: string;
-  userId: bigint;
+  ip: string;
   resolve: (result: FaucetResult) => void;
 }
 

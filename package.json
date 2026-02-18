@@ -7,7 +7,7 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@alephium/web3": "^1.9.0",
+    "@alephium/web3": "^2.0.8",
     "pino": "^9.6.0",
     "prom-client": "^15.1.3"
   },

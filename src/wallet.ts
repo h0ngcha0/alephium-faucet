@@ -74,20 +74,20 @@ export class WalletService {
   }
 
   private async processRequest(request: FaucetRequest): Promise<void> {
-    const { address, userId, resolve } = request;
+    const { address, ip, resolve } = request;
     this.log.info(
-      `Got a new request to send ${this.txAmount} to ${address} (user ${userId})`
+      `Got a new request to send ${this.txAmount} to ${address}`
     );
 
     try {
-      const allowed = this.storage.isRequestAllowed(userId, address);
+      const allowed = this.storage.isRequestAllowed(ip, address);
       if (!allowed) {
         this.log.debug("Request is not allowed (throttled)");
         resolve({ error: new ThrottleError("request throttled") });
         return;
       }
 
-      this.storage.addNewRequest(userId, address);
+      this.storage.addNewRequest(ip, address);
 
       const wallet = await this.nodeProvider.wallets.getWalletsWalletName(
         this.walletName

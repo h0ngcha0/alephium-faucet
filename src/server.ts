@@ -5,7 +5,7 @@ import type { AppConfig, FaucetResult } from "./types";
 import type { FaucetStorage } from "./storage";
 import type { FaucetMetrics } from "./metrics";
 import type { WalletService } from "./wallet";
-import { extractAddress, ipStr2BigInt } from "./address";
+import { extractAddress } from "./address";
 
 export function startServer(
   config: AppConfig,
@@ -43,9 +43,6 @@ export function startServer(
         });
       }
 
-      if (path === "/debug/users") {
-        return debugEndpoint(req, () => storage.listUserIds());
-      }
       if (path === "/debug/addresses") {
         return debugEndpoint(req, () => storage.listAddresses());
       }
@@ -85,20 +82,12 @@ async function handleSend(
     );
   }
 
-  const ip = req.headers.get("X-Forwarded-For");
-  if (!ip) {
-    return textResponse(
-      "Unknown remote ip, can't throttle properly....\n",
-      400
-    );
-  }
+  const ip = req.headers.get("X-Forwarded-For") ?? "";
 
-  log.info(`Got a faucet request for ${address} from ${ip}`);
-
-  const userId = ipStr2BigInt(ip);
+  log.info(`Got a faucet request for ${address} from ${ip || "unknown"}`);
 
   const resultPromise = new Promise<FaucetResult>((resolve) => {
-    wallet.handleRequest({ address, userId, resolve });
+    wallet.handleRequest({ address, ip, resolve });
   });
 
   const timeoutPromise = new Promise<FaucetResult>((resolve) => {

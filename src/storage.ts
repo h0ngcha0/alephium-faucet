@@ -1,36 +1,33 @@
 import { Database } from "bun:sqlite";
 import type pino from "pino";
 
-const SUFFIX_USERIDS = "-userids";
+const SUFFIX_IPS = "-ips";
 const SUFFIX_ADDRESSES = "-addresses";
 
 export class FaucetStorage {
   private db: Database;
   private prefix: string;
-  private userThrottling: number; // ms
+  private ipThrottling: number; // ms
   private addressThrottling: number; // ms
   private log: pino.Logger;
 
   constructor(
     dbPath: string,
     prefix: string,
-    userThrottling: number,
+    ipThrottling: number,
     addressThrottling: number,
     log: pino.Logger
   ) {
     this.db = new Database(dbPath, { create: true });
     this.prefix = prefix;
-    this.userThrottling = userThrottling;
+    this.ipThrottling = ipThrottling;
     this.addressThrottling = addressThrottling;
     this.log = log;
 
     // Enable WAL mode for better concurrent read performance
     this.db.run("PRAGMA journal_mode=WAL");
 
-    for (const suffix of [
-      SUFFIX_USERIDS,
-      SUFFIX_ADDRESSES,
-    ]) {
+    for (const suffix of [SUFFIX_IPS, SUFFIX_ADDRESSES]) {
       this.db.run(
         `CREATE TABLE IF NOT EXISTS "${this.tableName(suffix)}" (key TEXT PRIMARY KEY, timestamp INTEGER NOT NULL)`
       );
@@ -50,12 +47,12 @@ export class FaucetStorage {
     return row ? row.timestamp : 0;
   }
 
-  isRequestAllowed(userId: bigint, address: string): boolean {
+  isRequestAllowed(ip: string, address: string): boolean {
     const nowSec = Math.floor(Date.now() / 1000);
 
-    if (userId !== 0n) {
-      const ts = this.getTimestamp(userId.toString(), SUFFIX_USERIDS);
-      if (ts > 0 && nowSec - ts < this.userThrottling / 1000) {
+    if (ip) {
+      const ts = this.getTimestamp(ip, SUFFIX_IPS);
+      if (ts > 0 && nowSec - ts < this.ipThrottling / 1000) {
         return false;
       }
     }
@@ -68,11 +65,11 @@ export class FaucetStorage {
     return true;
   }
 
-  addNewRequest(userId: bigint, address: string): void {
+  addNewRequest(ip: string, address: string): void {
     const nowSec = Math.floor(Date.now() / 1000);
 
-    if (userId !== 0n) {
-      this.upsert(SUFFIX_USERIDS, userId.toString(), nowSec);
+    if (ip) {
+      this.upsert(SUFFIX_IPS, ip, nowSec);
     }
 
     this.upsert(SUFFIX_ADDRESSES, address, nowSec);
@@ -83,10 +80,6 @@ export class FaucetStorage {
       `INSERT INTO "${this.tableName(suffix)}" (key, timestamp) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET timestamp = excluded.timestamp`,
       [key, timestamp]
     );
-  }
-
-  listUserIds(): string[] {
-    return this.listKeys(SUFFIX_USERIDS);
   }
 
   listAddresses(): string[] {

@@ -24,39 +24,32 @@ afterEach(() => {
 
 describe("FaucetStorage", () => {
   test("allows first request", () => {
-    expect(storage.isRequestAllowed(1n, "addr1")).toBe(true);
+    expect(storage.isRequestAllowed("1.2.3.4", "addr1")).toBe(true);
   });
 
-  test("throttles by userId after adding request", () => {
-    storage.addNewRequest(100n, "addr1");
-    expect(storage.isRequestAllowed(100n, "addr2")).toBe(false);
+  test("throttles by IP after adding request", () => {
+    storage.addNewRequest("1.2.3.4", "addr1");
+    expect(storage.isRequestAllowed("1.2.3.4", "addr2")).toBe(false);
   });
 
   test("throttles by address after adding request", () => {
-    storage.addNewRequest(100n, "addr1");
-    expect(storage.isRequestAllowed(200n, "addr1")).toBe(false);
+    storage.addNewRequest("1.2.3.4", "addr1");
+    expect(storage.isRequestAllowed("5.6.7.8", "addr1")).toBe(false);
   });
 
-  test("allows different user and address", () => {
-    storage.addNewRequest(100n, "addr1");
-    expect(storage.isRequestAllowed(200n, "addr2")).toBe(true);
+  test("allows different IP and address", () => {
+    storage.addNewRequest("1.2.3.4", "addr1");
+    expect(storage.isRequestAllowed("5.6.7.8", "addr2")).toBe(true);
   });
 
-  test("skips userId throttle check when userId is 0", () => {
-    storage.addNewRequest(0n, "addr1");
-    // userId 0 should not be checked for throttling
-    expect(storage.isRequestAllowed(0n, "addr2")).toBe(true);
-  });
-
-  test("lists user ids", () => {
-    storage.addNewRequest(100n, "addr1");
-    storage.addNewRequest(200n, "addr2");
-    expect(storage.listUserIds()).toEqual(["100", "200"]);
+  test("skips IP throttle check when IP is empty", () => {
+    storage.addNewRequest("", "addr1");
+    expect(storage.isRequestAllowed("", "addr2")).toBe(true);
   });
 
   test("lists addresses", () => {
-    storage.addNewRequest(100n, "addr1");
-    storage.addNewRequest(200n, "addr2");
+    storage.addNewRequest("1.2.3.4", "addr1");
+    storage.addNewRequest("5.6.7.8", "addr2");
     const addrs = storage.listAddresses();
     expect(addrs).toContain("addr1");
     expect(addrs).toContain("addr2");

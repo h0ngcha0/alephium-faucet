@@ -42,7 +42,7 @@ export function loadConfig(): AppConfig {
     explorerTxUri: env("EXPLORER_TX_URI", "https://testnet.alephium.org/transactions"),
     dbPath: env("DB_PATH", "/data/state/faucet.db"),
     dbName: env("DB_NAME", "faucet"),
-    userThrottling: envDuration("USER_THROTTLING", "1h"),
+    ipThrottling: envDuration("IP_THROTTLING", "1h"),
     addressThrottling: envDuration("ADDRESS_THROTTLING", "24h"),
     txWaitTime: envDuration("TX_WAIT_TIME", "60s"),
     metricsNamespace: env("METRICS_NAMESPACE", "alephium"),
