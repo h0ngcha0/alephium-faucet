@@ -44,7 +44,8 @@ export class TokenListService {
       throw new Error(`Failed to fetch token list: ${response.status} ${response.statusText}`);
     }
 
-    const data = (await response.json()) as TokenInfo[];
+    const json = await response.json();
+    const data = (Array.isArray(json) ? json : json.tokens ?? []) as TokenInfo[];
     const newTokens = new Map<string, TokenInfo>();
     for (const token of data) {
       newTokens.set(token.symbol.toLowerCase(), token);
